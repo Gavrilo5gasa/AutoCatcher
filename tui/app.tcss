@@ -1,0 +1,149 @@
+/* AutoCatcher — shared stylesheet for all screens.
+   Kept in one file so the look stays consistent as Phase 2 grows. */
+
+Screen {
+    background: $surface;
+}
+
+/* ── Generic layout helpers ─────────────────────────────────────────────── */
+
+.panel-title {
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+}
+
+.dim {
+    color: $text-muted;
+}
+
+.hint {
+    color: $text-muted;
+    text-style: italic;
+    padding: 0 1;
+}
+
+/* ── Minor-involved warning banner ──────────────────────────────────────── */
+
+#minor-banner {
+    background: $error 20%;
+    border: heavy $error;
+    color: $error;
+    text-style: bold;
+    padding: 1 2;
+    margin: 0 0 1 0;
+    display: none;
+}
+
+#minor-banner.-visible {
+    display: block;
+}
+
+/* ── Case browser ────────────────────────────────────────────────────────── */
+
+#case-table {
+    height: 1fr;
+    border: round $primary;
+}
+
+#case-browser-footer-hint {
+    dock: bottom;
+    height: 1;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+/* ── Case detail ─────────────────────────────────────────────────────────── */
+
+#case-detail-header {
+    height: auto;
+    padding: 1 2;
+    border: round $primary;
+    margin: 0 0 1 0;
+}
+
+#overview-table {
+    height: auto;
+    margin: 1 0;
+}
+
+#notes-box {
+    height: 1fr;
+    border: round $primary;
+    padding: 1;
+    margin: 1 0;
+}
+
+#evidence-table, #archive-table {
+    height: 1fr;
+    border: round $primary;
+}
+
+.toolbar {
+    height: auto;
+    padding: 1 0;
+    align: left middle;
+}
+
+.toolbar Button {
+    margin: 0 1 0 0;
+}
+
+/* ── Report / packing screen ─────────────────────────────────────────────── */
+
+#report-buttons {
+    height: auto;
+    padding: 1 0;
+}
+
+#report-buttons Button {
+    margin: 0 1 1 0;
+}
+
+#report-output {
+    height: 1fr;
+    border: round $primary;
+    padding: 1 2;
+}
+
+#package-status {
+    height: auto;
+    padding: 1 2;
+    border: round $success;
+    margin: 1 0 0 0;
+    display: none;
+}
+
+#package-status.-visible {
+    display: block;
+}
+
+/* ── Modals ───────────────────────────────────────────────────────────────── */
+
+.modal-dialog {
+    width: 70;
+    height: auto;
+    border: thick $primary;
+    background: $panel;
+    padding: 1 2;
+}
+
+.modal-dialog Label {
+    padding: 1 0 0 0;
+}
+
+.modal-buttons {
+    height: auto;
+    padding: 1 0 0 0;
+    align: right middle;
+}
+
+.modal-buttons Button {
+    margin: 0 0 0 1;
+}
+
+.error-text {
+    color: $error;
+    text-style: bold;
+    height: auto;
+}

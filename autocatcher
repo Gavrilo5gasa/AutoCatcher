@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# AutoCatcher global wrapper
+# Install: sudo cp autocatcher /usr/local/bin/autocatcher && sudo chmod +x /usr/local/bin/autocatcher
+
+AUTOCATCHER_DIR="/home/gavrilo/opt/Project Void Weapon/AutoCacher"
+exec "$AUTOCATCHER_DIR/.venv/bin/python" "$AUTOCATCHER_DIR/main.py" "$@"
