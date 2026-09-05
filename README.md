@@ -1,3 +1,10 @@
+# ⚠️ THIS PROJECT WAS PARTLY MADE WITH AI ⚠️
+> The reason behind this is because I realised that it's
+> better to put Safety over my lazyness to code,
+> and that't why it's partly AI-Made but no worries
+> I will rewrite the entire project to be fully human made (when I have time).
+> For now look at this project as "Alpha" version
+
 # AutoCatcher
 
 Evidence collection and reporting toolkit for documenting online predator
