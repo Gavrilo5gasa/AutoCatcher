@@ -4,8 +4,13 @@ requests>=2.31
 reportlab>=4
 textual>=0.60
 
+# Windows screenshot capture (utils/platform.py) — grim/scrot/screencapture
+# have no Windows equivalent, so PIL.ImageGrab is used there instead.
+Pillow>=10; sys_platform == "win32"
+
 # Phase 3 GUI (gui/) needs GTK4 + PyGObject — these are NOT pip installable,
 # they're system packages:
 #   Debian/Ubuntu:  sudo apt install python3-gi gir1.2-gtk-4.0
 #   Arch:           sudo pacman -S python-gobject gtk4
 # `python main.py gui` will tell you if they're missing.
+# Not available on Windows in this build — see Phase 4.2 in PLAN_TREE.md.

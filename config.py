@@ -4,18 +4,28 @@ All paths and settings live here. Import this everywhere — never hardcode.
 """
 
 import os
+import sys
 from pathlib import Path
 
 # ── App info ──────────────────────────────────────────────────────────────────
 
 APP_NAME = "AutoCatcher"
-APP_VERSION = "0.3.0"
-APP_PHASE = "Phase 3 — GUI"
+APP_VERSION = "0.4.0"
+APP_PHASE = "Phase 4.2 — Windows Packaging"
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-# Root of the project (wherever this file lives)
-PROJECT_ROOT = Path(__file__).parent.resolve()
+# Root of the project — used as the default parent for cases/ and packages/.
+#
+# When frozen into a PyInstaller onefile .exe, __file__ points inside the
+# temporary extraction directory (sys._MEIPASS), which PyInstaller deletes
+# the moment the process exits. Defaulting CASES_DIR off of that would mean
+# every case silently vanishes when the app closes. sys.executable, by
+# contrast, is the real path to the .exe on disk — use that instead.
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = Path(sys.executable).parent.resolve()
+else:
+    PROJECT_ROOT = Path(__file__).parent.resolve()
 
 # Where all cases are stored. Override with env var AUTOCACHER_CASES_DIR if needed.
 CASES_DIR = Path(os.environ.get("AUTOCATCHER_CASES_DIR", PROJECT_ROOT / "cases"))
