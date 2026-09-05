@@ -13,8 +13,9 @@ digilante-style investigative work) who need to capture, hash, archive, and
 package evidence in a way that holds up when it's handed to a platform's
 Trust & Safety team, NCMEC, or local police.
 
-Available as a CLI, a TUI, and a GTK4 desktop GUI, sharing the same case
-data on disk.
+Available as a CLI, a TUI, and (on Linux) a GTK4 desktop GUI, sharing the
+same case data on disk. A standalone Windows `.exe` (CLI + TUI) is also
+available — see [Windows build](#windows-build) below.
 
 > **Not legal advice.** AutoCatcher helps you collect and preserve evidence
 > in a consistent, tamper-evident way. It does not replace contacting law
@@ -52,9 +53,10 @@ AutoCatcher enforces a few simple rules on every case:
   zips everything into a submission-ready package
 - Reporting guides for Discord Trust & Safety, NCMEC CyberTipline, and
   generic platforms, with automatic warnings when a case involves a minor
-- CLI, TUI (Textual), and GTK4 GUI — same case data, three interfaces
+- CLI, TUI (Textual), and (Linux) GTK4 GUI — same case data, multiple
+  interfaces
 
-## Installation
+## Installation (from source)
 
 Requires Python 3.10+.
 
@@ -66,7 +68,8 @@ python3 -m venv .venv
 ```
 
 The GUI needs GTK4 + PyGObject, which are **system packages**, not pip
-installable:
+installable, and are **Linux-only** in this project (see
+[Windows build](#windows-build)):
 
 ```bash
 # Debian/Ubuntu
@@ -76,23 +79,23 @@ sudo apt install python3-gi gir1.2-gtk-4.0
 sudo pacman -S python-gobject gtk4
 ```
 
-The CLI and TUI work without GTK.
+The CLI and TUI work without GTK, on any OS.
 
 ### Screenshot capture dependencies
 
 `evidence screenshot` uses whatever's native to your OS:
 
-| OS      | Tool(s) used                                  | Extra install                          |
+| OS      | Tool(s) used                                | Extra install                       |
 |---------|------------------------------------------------|-----------------------------------------|
-| Linux   | `grim` (Wayland) → `scrot` → `import` (X11)     | `sudo apt install grim` or `scrot`     |
-| macOS   | `screencapture` (built in)                      | None                                    |
-| Windows | `PIL.ImageGrab` (Pillow)                        | `pip install Pillow`                    |
+| Linux   | `grim` (Wayland) → `scrot` → `import` (X11)   | `sudo apt install grim` or `scrot`     |
+| macOS   | `screencapture` (built in)                    | None                                     |
+| Windows | `PIL.ImageGrab` (Pillow)                      | Included automatically via `requirements.txt` |
 
 If none of these are available, the command fails with a clear message
 instead of crashing — screenshot capture is a convenience, not a
 requirement (`evidence add` always works with any file you already have).
 
-### Global command
+### Global command (Linux/macOS)
 
 To run `autocatcher` from anywhere:
 
@@ -105,6 +108,42 @@ The wrapper script always calls the project's own `.venv/bin/python`, so
 dependencies resolve correctly regardless of your shell's active
 environment. **Don't run `autocatcher` with `sudo`** — it doesn't need root,
 and `sudo` will bypass the venv and break imports.
+
+## Windows build
+
+Phase 4.2 ships AutoCatcher as a **standalone `.exe`** via PyInstaller — no
+Python install required on the machine running it.
+
+**What's included:** CLI + TUI, full feature set (cases, evidence, screenshot
+capture via Pillow, archiving, hashing, PDF packaging, reporting guides).
+
+**What's not included:** the GTK4 GUI. PyGObject on Windows needs a separate
+MSYS2/GTK runtime that isn't practical to bundle into a single `.exe`.
+Running `autocatcher gui` on the Windows build shows the same "GTK4 not
+available" message you'd get on a Linux machine without GTK installed —
+that's intentional, not a bug. macOS support is a separate, not-yet-started
+phase (see [PLAN_TREE.md](PLAN_TREE.md)).
+
+### Building it yourself
+
+On a Windows machine, inside the project's venv:
+
+```powershell
+pip install -r requirements.txt
+pip install -r requirements-build.txt
+pyinstaller autocatcher.spec
+```
+
+The result is `dist\autocatcher.exe`. Copy it anywhere and run it directly:
+
+```powershell
+.\autocatcher.exe case new --subject "someuser#1234" --platform discord
+.\autocatcher.exe tui
+```
+
+Cases and packaged zips are written next to the `.exe` itself (`cases\` and
+`packages\` folders created alongside it) — not to a temp folder, and not
+wherever you happened to launch it from.
 
 ## Usage
 
@@ -139,10 +178,12 @@ autocatcher report generic <case-id>
 
 # Or launch an interface instead of using individual commands
 autocatcher tui
-autocatcher gui
+autocatcher gui   # Linux only
 ```
 
-Cases live in `cases/` inside the project (or wherever `AUTOCATCHER_CASES_DIR`
+(On Windows, replace `autocatcher` with `.\autocatcher.exe`.)
+
+Cases live in `cases/` next to the app (or wherever `AUTOCATCHER_CASES_DIR`
 points), one folder per case:
 
 ```
@@ -165,43 +206,47 @@ CyberTipline report is legally mandated in that situation.
 
 ```
 autocatcher/
-├── main.py            # Typer CLI entry point
-├── config.py           # Paths, settings, constants
+├── main.py                # Typer CLI entry point
+├── config.py                # Paths, settings, constants (frozen-exe aware)
+├── autocatcher.spec          # PyInstaller build spec (Windows)
+├── requirements-build.txt     # Build-only deps (pyinstaller)
 ├── core/
-│   ├── case.py           # Case creation, loading, folder structure
-│   ├── evidence.py        # Evidence intake
-│   ├── archive.py          # Wayback Machine archiving
-│   ├── hasher.py            # SHA256 manifest + verification
-│   └── packager.py           # PDF report + zip packaging
+│   ├── case.py                  # Case creation, loading, folder structure
+│   ├── evidence.py                # Evidence intake
+│   ├── archive.py                   # Wayback Machine archiving
+│   ├── hasher.py                      # SHA256 manifest + verification
+│   └── packager.py                     # PDF report + zip packaging
 ├── reporters/
-│   ├── discord.py             # Discord Trust & Safety reporting guide
-│   ├── ncmec.py                 # NCMEC CyberTipline reporting guide
-│   └── generic.py                # Generic platform reporting guide
+│   ├── discord.py                        # Discord Trust & Safety guide
+│   ├── ncmec.py                            # NCMEC CyberTipline guide
+│   └── generic.py                            # Generic platform guide
 ├── utils/
-│   ├── platform.py                # OS abstraction: screenshots, paths
-│   ├── timestamp.py                # UTC timestamps
-│   └── logger.py                    # Internal app logging
-├── tui/                # Textual terminal UI
-└── gui/                 # GTK4 desktop UI
+│   ├── platform.py                            # OS abstraction: screenshots, paths
+│   ├── timestamp.py                             # UTC timestamps
+│   └── logger.py                                  # Internal app logging
+├── tui/                  # Textual terminal UI
+└── gui/                   # GTK4 desktop UI (Linux only)
 ```
 
 All OS-specific behavior (screenshot tools, default folder paths) lives in
 `utils/platform.py`. Nothing else in the codebase branches on `sys.platform`
 or shells out to an OS-specific binary directly — that's what makes adding
-a new platform a matter of extending one file.
+a platform a matter of extending one file, not hunting through the whole
+codebase.
 
 ## Tech stack
 
-| Layer       | Choice                                       | Why                                  |
-|-------------|-----------------------------------------------|----------------------------------------|
-| Language    | Python                                        | Smooth CLI → TUI → GUI path            |
-| CLI         | Typer                                         | Typed, clean, auto help                |
-| TUI         | Textual                                       | Modern, cross-terminal                 |
-| GUI         | GTK4 (PyGObject)                              | Native Wayland, no XWayland            |
-| Hashing     | hashlib (built-in)                            | No deps, SHA256                        |
-| Archiving   | Wayback Machine API                           | Free, reliable                         |
+| Layer       | Choice                                        | Why                                    |
+|-------------|--------------------------------------------------|-------------------------------------------|
+| Language    | Python                                            | Smooth CLI → TUI → GUI path                |
+| CLI         | Typer                                             | Typed, clean, auto help                    |
+| TUI         | Textual                                           | Modern, cross-terminal                     |
+| GUI         | GTK4 (PyGObject)                                  | Native Wayland, no XWayland (Linux only)  |
+| Packaging   | PyInstaller (Windows)                            | Single .exe, no Python required            |
+| Hashing     | hashlib (built-in)                                | No deps, SHA256                            |
+| Archiving   | Wayback Machine API                               | Free, reliable                             |
 | Screenshots | grim/scrot/import (Linux), screencapture (macOS), Pillow (Windows) | One native path per OS |
-| Packaging   | zipfile + reportlab                           | Clean report output                    |
+| Reports     | zipfile + reportlab                               | Clean PDF + zip output                     |
 
 ## Design rules
 
@@ -214,16 +259,21 @@ a new platform a matter of extending one file.
 4. **Timestamps are always UTC** — legal validity across timezones.
 5. **Hash everything on intake** — SHA256 manifest generated the moment a
    file is added.
+6. **Frozen-build paths never depend on a temp directory.** Anything the
+   app writes (cases, packages) must resolve relative to a stable location
+   (`sys.executable`'s directory when frozen), never `__file__` or
+   `sys._MEIPASS`, both of which point inside a directory that gets deleted
+   when a packaged executable exits.
 
 ## Reporting targets
 
-| Platform     | Method                              | Notes                          |
-|--------------|---------------------------------------|-----------------------------------|
-| Discord      | dis.gd/report + Trust & Safety form  | Include case ID + zip             |
-| NCMEC        | CyberTipline (cybertip.org)           | Required if a minor is involved  |
-| Twitter/X    | In-app report + Trust & Safety       | Archive profile first             |
-| Local police | Cybercrime unit                       | Use packaged zip as evidence      |
-| Generic      | Platform report + evidence package    | Fallback for any platform         |
+| Platform     | Method                                | Notes                            |
+|--------------|-------------------------------------------|---------------------------------------|
+| Discord      | dis.gd/report + Trust & Safety form      | Include case ID + zip                 |
+| NCMEC        | CyberTipline (cybertip.org)               | Required if a minor is involved      |
+| Twitter/X    | In-app report + Trust & Safety           | Archive profile first                 |
+| Local police | Cybercrime unit                           | Use packaged zip as evidence          |
+| Generic      | Platform report + evidence package        | Fallback for any platform             |
 
 ## Status
 
@@ -231,10 +281,10 @@ a new platform a matter of extending one file.
 |-----------------------------|-----------------|
 | 1 — CLI                     | ✅ Done         |
 | 2 — TUI                     | ✅ Done         |
-| 3 — GUI (GTK4)              | ✅ Done         |
+| 3 — GUI (GTK4, Linux)       | ✅ Done         |
 | 4.1 — OS abstraction layer  | ✅ Done         |
-| 4.2 — Windows packaging     | 🔲 In progress |
-| 4.3 — macOS port            | 🔲 Todo        |
+| 4.2 — Windows packaging     | ✅ Done         |
+| 4.3 — macOS port            | 🔲 Not planned yet |
 | 5 — Optional integrations   | 🔲 Todo        |
 
 ## License
