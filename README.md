@@ -15,7 +15,7 @@ Trust & Safety team, NCMEC, or local police.
 
 Available as a CLI, a TUI, and (on Linux) a GTK4 desktop GUI, sharing the
 same case data on disk. Windows gets two standalone executables: **`AutoCatcher.exe`** (GUI only —
-just double-click) and **`autocatcher.exe`** (CLI + TUI) — see
+just double-click) and **`autocatcher-cli.exe`** (CLI + TUI) — see
 [Windows build](#windows-build) below.
 
 > **Not legal advice.** AutoCatcher helps you collect and preserve evidence
@@ -135,11 +135,11 @@ pip install -r requirements-build.txt
 pyinstaller autocatcher.spec
 ```
 
-The result is `dist\autocatcher.exe`. Copy it anywhere and run it directly:
+The result is `dist\autocatcher-cli.exe`. Copy it anywhere and run it directly:
 
 ```powershell
-.\autocatcher.exe case new --subject "someuser#1234" --platform discord
-.\autocatcher.exe tui
+.\autocatcher-cli.exe case new --subject "someuser#1234" --platform discord
+.\autocatcher-cli.exe tui
 ```
 
 Cases and packaged zips are written next to the `.exe` itself (`cases\` and
@@ -182,7 +182,7 @@ autocatcher tui
 autocatcher gui   # Linux only
 ```
 
-(On Windows, replace `autocatcher` with `.\autocatcher.exe`.)
+(On Windows, replace `autocatcher` with `.\autocatcher-cli.exe`.)
 
 Cases live in `cases/` next to the app (or wherever `AUTOCATCHER_CASES_DIR`
 points), one folder per case:

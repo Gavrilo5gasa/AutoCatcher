@@ -4,11 +4,15 @@
 #
 # Produces TWO single-file executables in dist/:
 #
-#   AutoCatcher.exe   — GUI ONLY (Tkinter, gui_win/). Windowed: double-click
-#                       opens the app, no console window, no CLI.
-#   autocatcher.exe   — CLI + TUI (console). Run from a terminal; bare
-#                       double-click opens the TUI. `autocatcher gui` also
-#                       launches the Tk GUI.
+#   AutoCatcher.exe      — GUI ONLY (Tkinter, gui_win/). Windowed: double-click
+#                          opens the app, no console window, no CLI.
+#   autocatcher-cli.exe  — CLI + TUI (console). Run from a terminal; bare
+#                          double-click opens the TUI. `autocatcher-cli gui`
+#                          also launches the Tk GUI.
+#
+# The names MUST differ by more than letter case: Windows filenames are
+# case-insensitive, so "AutoCatcher.exe" and "autocatcher.exe" are the same
+# file and the second build silently overwrites the first.
 #
 # The GTK4 GUI (gui/) is Linux-only and is never bundled on Windows.
 
@@ -87,7 +91,7 @@ cli_exe = EXE(
     cli_a.zipfiles,
     cli_a.datas,
     [],
-    name="autocatcher",
+    name="autocatcher-cli",
     debug=False,
     strip=False,
     upx=False,

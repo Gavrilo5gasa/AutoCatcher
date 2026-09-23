@@ -568,7 +568,10 @@ class AutoCatcherTk(tk.Tk):
         self.view.show_case(case_id)
 
 
-def run() -> int:
+def run(note=None) -> int:  # noqa: ANN001
+    """Start the GUI. `note` (optional) receives selftest breadcrumbs / crash traces."""
+    say = note or (lambda _m: None)
+    selftest = bool(os.environ.get("AUTOCATCHER_SELFTEST"))
     # A windowed (console=False) exe has no stdout/stderr; anything that
     # writes to them (logging, rich) must not explode.
     for name in ("stdout", "stderr"):
@@ -577,18 +580,23 @@ def run() -> int:
     CASES_DIR.mkdir(parents=True, exist_ok=True)
     try:
         win = AutoCatcherTk()
-        if os.environ.get("AUTOCATCHER_SELFTEST"):  # CI: build the window, then exit
+        say("[selftest] window created")
+        if selftest:  # CI: build the window, then exit
             win.update()
             win.destroy()
+            say("[selftest] OK")
             return 0
         win.mainloop()
-    except Exception as e:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         import traceback
 
-        try:
-            messagebox.showerror(APP_NAME, f"AutoCatcher crashed:\n\n{traceback.format_exc()[-1500:]}")
-        except Exception:  # noqa: BLE001
-            pass
+        tb = traceback.format_exc()
+        say("CRASH\n" + tb)
+        if not selftest:  # never pop a dialog in CI
+            try:
+                messagebox.showerror(APP_NAME, f"AutoCatcher crashed:\n\n{tb[-1500:]}")
+            except Exception:  # noqa: BLE001
+                pass
         return 1
     return 0
 

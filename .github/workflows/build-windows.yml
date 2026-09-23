@@ -38,7 +38,7 @@ jobs:
         run: pyinstaller autocatcher.spec
 
       - name: Smoke test the CLI exe
-        run: .\dist\autocatcher.exe --help
+        run: .\dist\autocatcher-cli.exe --help
 
       # The GUI exe is windowed (no stdout), so --help can't be used. With
       # AUTOCATCHER_SELFTEST set it builds the main window, then exits 0.
@@ -46,9 +46,17 @@ jobs:
       - name: Smoke test the GUI exe
         shell: pwsh
         run: |
+          $log = Join-Path $PWD "gui_selftest.log"
+          Remove-Item $log -ErrorAction SilentlyContinue
           $env:AUTOCATCHER_SELFTEST = "1"
+          $env:AUTOCATCHER_LOG = $log
           $p = Start-Process .\dist\AutoCatcher.exe -PassThru
-          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "GUI exe hung on startup" }
+          $done = $p.WaitForExit(90000)
+          if (-not $done) { taskkill /F /T /PID $p.Id | Out-Null }   # kills the onefile child too
+          Write-Host "---- GUI selftest log ----"
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "(no log written - exe never reached Python code)" }
+          Write-Host "--------------------------"
+          if (-not $done) { throw "GUI exe hung on startup (see log above)" }
           if ($p.ExitCode -ne 0) { throw "GUI exe exited with code $($p.ExitCode)" }
 
       - name: Upload exes as build artifact
@@ -57,7 +65,7 @@ jobs:
           name: autocatcher-windows
           path: |
             dist/AutoCatcher.exe
-            dist/autocatcher.exe
+            dist/autocatcher-cli.exe
           retention-days: 30
 
       # Only attach to a GitHub Release when the trigger was an actual
@@ -69,6 +77,6 @@ jobs:
         with:
           files: |
             dist/AutoCatcher.exe
-            dist/autocatcher.exe
+            dist/autocatcher-cli.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
