@@ -1,9 +1,9 @@
 """
 gui/case_view.py — assembles one case's content: header + tabbed pages.
 
-Ties together Overview, Evidence gallery, Timeline (3.2), and the
+Ties together Overview, Evidence gallery, Archive, Timeline (3.2), and the
 Report wizard (3.3) into a single Gtk.Notebook, and owns the dialogs
-that mutate case state (add evidence, add note, archive URL).
+that mutate case state (add evidence, add note, link case, archive URL).
 """
 
 from pathlib import Path
@@ -14,12 +14,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gtk
 
-from core.archive import archive_url
-from core.case import load_case
+from core.case import delete_case, load_case
 
-from gui.dialogs import AddEvidenceDialog, ArchiveUrlDialog, NoteDialog
+from gui.dialogs import (
+    AddEvidenceDialog,
+    DeleteCaseDialog,
+    EditNoteDialog,
+    LinkCaseDialog,
+    NewCaseDialog,
+    NoteDialog,
+)
+from gui.pages.archive_page import ArchivePage
 from gui.pages.evidence_gallery import EvidenceGalleryPage
 from gui.pages.overview_page import OverviewPage
 from gui.pages.report_wizard import ReportWizardPage
@@ -44,10 +51,9 @@ class CaseView(Gtk.Box):
         self.title_label = Gtk.Label(xalign=0, hexpand=True)
         self.title_label.add_css_class("case-title")
         title_row.append(self.title_label)
-
-        archive_btn = Gtk.Button(label="Archive URL")
-        archive_btn.connect("clicked", lambda _b: self._open_archive_url())
-        title_row.append(archive_btn)
+        # "Archive URL" used to live here as a header button — it now has
+        # its own tab (see the Archive page below), so the header is just
+        # the case title and minor-involved banner.
         header.append(title_row)
 
         self.subtitle_label = Gtk.Label(xalign=0)
@@ -66,13 +72,28 @@ class CaseView(Gtk.Box):
         self.notebook = Gtk.Notebook()
         self.notebook.set_vexpand(True)
 
-        self.overview_page = OverviewPage(self.case_dir, self.meta, on_add_note=self._open_add_note)
+        self.overview_page = OverviewPage(
+            self.case_dir,
+            self.meta,
+            on_add_note=self._open_add_note,
+            on_edit_note=self._open_edit_note,
+            on_add_link=self._open_link_case,
+            on_add_subcase=self._open_add_subcase,
+            on_switch_case=self._switch_case,
+            on_delete_case=self._open_delete_case,
+        )
         self.notebook.append_page(self.overview_page, Gtk.Label(label="Overview"))
 
         self.evidence_page = EvidenceGalleryPage(
-            self.case_dir, on_add_evidence=self._open_add_evidence, on_notify=on_notify
+            self.case_dir,
+            get_window=get_window,
+            on_add_evidence=self._open_add_evidence,
+            on_notify=on_notify,
         )
         self.notebook.append_page(self.evidence_page, Gtk.Label(label="Evidence"))
+
+        self.archive_page = ArchivePage(self.case_dir, on_notify=on_notify)
+        self.notebook.append_page(self.archive_page, Gtk.Label(label="Archive"))
 
         self.timeline_page = TimelinePage(self.case_dir, self.meta)
         self.notebook.append_page(self.timeline_page, Gtk.Label(label="Timeline"))
@@ -93,6 +114,7 @@ class CaseView(Gtk.Box):
         self._refresh_header()
         self.overview_page.set_data(self.case_dir, self.meta)
         self.evidence_page.set_case(self.case_dir)
+        self.archive_page.set_case(self.case_dir)
         self.timeline_page.set_data(self.case_dir, self.meta)
         self.report_page.set_case(self.case_dir, self.meta)
 
@@ -119,26 +141,40 @@ class CaseView(Gtk.Box):
     def _open_add_note(self) -> None:
         NoteDialog(self.get_window(), self.case_dir, on_added=self._after_change).present()
 
-    def _open_archive_url(self) -> None:
-        def on_submit(url: str) -> None:
-            self.on_notify(f"Submitting to Wayback Machine: {url}", error=False)
+    def _open_edit_note(self, note_id: str, current_text: str) -> None:
+        EditNoteDialog(
+            self.get_window(), self.case_dir, note_id, current_text, on_edited=self._after_change
+        ).present()
 
-            def do_archive():
-                result = archive_url(self.case_dir, url)
-                GLib.idle_add(self._after_archive, result)
-                return False
+    def _open_link_case(self) -> None:
+        LinkCaseDialog(
+            self.get_window(), self.case_dir, self.case_id, on_linked=self._after_change
+        ).present()
 
-            GLib.idle_add(do_archive)
+    def _open_add_subcase(self) -> None:
+        NewCaseDialog(
+            self.get_window(), on_created=self._after_subcase_created, parent_case=self.case_id
+        ).present()
 
-        ArchiveUrlDialog(self.get_window(), on_submit=on_submit).present()
+    def _open_delete_case(self) -> None:
+        DeleteCaseDialog(self.get_window(), self.case_id, on_result=self._on_delete_confirmed).present()
 
-    def _after_archive(self, result) -> bool:
-        self.refresh()
-        if result.status == "failed":
-            self.on_notify(f"Archive failed for {result.url}", error=True)
-        else:
-            self.on_notify(f"Archived ({result.status}): {result.archived_url}", error=False)
-        return False
+    def _on_delete_confirmed(self, confirmed: bool) -> None:
+        if not confirmed:
+            return
+        case_id = self.case_id
+        delete_case(case_id)
+        self.get_window().sidebar.refresh()
+        self.get_window().close_case(case_id)
+        self.on_notify(f"Case moved to trash: {case_id}", error=False)
+
+    def _after_subcase_created(self, new_case_id: str) -> None:
+        self._after_change()
+        self.get_window().sidebar.refresh()
+        self.on_notify(f"Sub-case created: {new_case_id}", error=False)
+
+    def _switch_case(self, other_case_id: str) -> None:
+        self.get_window().show_case(other_case_id)
 
     def _after_change(self) -> None:
         self.refresh()

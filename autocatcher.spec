@@ -1,77 +1,97 @@
 # autocatcher.spec — Phase 4.2: Windows packaging via PyInstaller.
 #
-# Build with:
-#   pyinstaller autocatcher.spec
+# Build with:   pyinstaller autocatcher.spec
 #
-# Output: dist/autocatcher.exe — a single-file executable. No Python
-# install, no venv, no requirements.txt needed on the target machine.
+# Produces TWO single-file executables in dist/:
 #
-# NOTE: This targets the CLI + TUI only. The GTK4 GUI (gui/) is not bundled
-# — PyGObject on Windows requires a separate MSYS2/GTK runtime that isn't
-# practical to bundle into a onefile exe. `autocatcher gui` on this build
-# will fail with the same "GTK4/PyGObject not available" message it already
-# shows on Linux machines missing GTK — that's intentional, not a bug.
-# macOS is out of scope for this phase (see PLAN_TREE.md Phase 4.3).
+#   AutoCatcher.exe   — GUI ONLY (Tkinter, gui_win/). Windowed: double-click
+#                       opens the app, no console window, no CLI.
+#   autocatcher.exe   — CLI + TUI (console). Run from a terminal; bare
+#                       double-click opens the TUI. `autocatcher gui` also
+#                       launches the Tk GUI.
+#
+# The GTK4 GUI (gui/) is Linux-only and is never bundled on Windows.
 
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
 
-a = Analysis(
+REPORTLAB = [
+    "reportlab.graphics.barcode",
+    "reportlab.lib.colors",
+    "reportlab.lib.pagesizes",
+    "reportlab.pdfgen.canvas",
+]
+
+# ── GUI-only build ────────────────────────────────────────────────────────────
+
+gui_a = Analysis(
+    ["autocatcher_gui.py"],
+    pathex=["."],
+    binaries=[],
+    datas=[],
+    hiddenimports=REPORTLAB + ["PIL.ImageGrab", "tkinter", "tkinter.ttk", "tkinter.filedialog", "tkinter.messagebox"],
+    hookspath=[],
+    excludes=["gi", "gui", "tui", "textual", "typer"],  # note: "gui" != "gui_win"
+    cipher=block_cipher,
+    noarchive=False,
+)
+gui_pyz = PYZ(gui_a.pure, gui_a.zipped_data, cipher=block_cipher)
+gui_exe = EXE(
+    gui_pyz,
+    gui_a.scripts,
+    gui_a.binaries,
+    gui_a.zipfiles,
+    gui_a.datas,
+    [],
+    name="AutoCatcher",
+    debug=False,
+    strip=False,
+    upx=False,
+    runtime_tmpdir=None,
+    console=False,  # windowed: no terminal flashes up
+    disable_windowed_traceback=False,
+)
+
+# ── CLI + TUI build ───────────────────────────────────────────────────────────
+
+cli_a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
     datas=[
-        # Textual resolves App.CSS_PATH relative to the module file at
-        # runtime. Under a onefile build that file lives inside the temp
-        # extraction dir, so app.tcss must be bundled alongside it or the
-        # TUI will crash on startup looking for a stylesheet that isn't
-        # there.
+        # Textual resolves CSS_PATH relative to the module file at runtime.
         ("tui/app.tcss", "tui"),
     ],
-    hiddenimports=[
-        # reportlab and textual both do some dynamic/lazy importing that
-        # PyInstaller's static analysis doesn't always catch on its own.
-        "reportlab.graphics.barcode",
-        "reportlab.lib.colors",
-        "reportlab.lib.pagesizes",
-        "reportlab.pdfgen.canvas",
+    hiddenimports=REPORTLAB + [
         "textual.widgets",
         "textual.screen",
         "textual.containers",
-        "PIL.ImageGrab",  # Windows screenshot capture — see utils/platform.py
+        "PIL.ImageGrab",
+        "gui_win.app",  # lazy-imported by `autocatcher gui`
+        "tkinter",
+        "tkinter.ttk",
+        "tkinter.filedialog",
+        "tkinter.messagebox",
     ],
     hookspath=[],
-    excludes=[
-        # gi/GTK is optional and Windows-incompatible in this build; don't
-        # let PyInstaller try (and fail) to pull it in.
-        "gi",
-        "gui",
-    ],
+    excludes=["gi", "gui"],
     cipher=block_cipher,
     noarchive=False,
 )
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+cli_pyz = PYZ(cli_a.pure, cli_a.zipped_data, cipher=block_cipher)
+cli_exe = EXE(
+    cli_pyz,
+    cli_a.scripts,
+    cli_a.binaries,
+    cli_a.zipfiles,
+    cli_a.datas,
     [],
     name="autocatcher",
     debug=False,
-    bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # CLI + TUI both need a console; this is not a windowed app
+    console=True,  # CLI + TUI need a console
     disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
 )

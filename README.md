@@ -14,8 +14,9 @@ package evidence in a way that holds up when it's handed to a platform's
 Trust & Safety team, NCMEC, or local police.
 
 Available as a CLI, a TUI, and (on Linux) a GTK4 desktop GUI, sharing the
-same case data on disk. A standalone Windows `.exe` (CLI + TUI) is also
-available — see [Windows build](#windows-build) below.
+same case data on disk. Windows gets two standalone executables: **`AutoCatcher.exe`** (GUI only —
+just double-click) and **`autocatcher.exe`** (CLI + TUI) — see
+[Windows build](#windows-build) below.
 
 > **Not legal advice.** AutoCatcher helps you collect and preserve evidence
 > in a consistent, tamper-evident way. It does not replace contacting law

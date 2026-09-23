@@ -38,9 +38,21 @@ PACKAGES_DIR = Path(os.environ.get("AUTOCATCHER_PACKAGES_DIR", PROJECT_ROOT / "p
 # Subdirectories created inside every new case folder
 CASE_SUBDIRS = ["screenshots", "logs", "files", "archived"]
 
+# Sub-cases (Case Folders) live nested inside their parent, one level per
+# folder: cases/<parent>/subcases/<child>/. Lets a single case represent a
+# whole community (e.g. a Discord server) with individual subject cases
+# nested underneath it.
+SUBCASES_DIRNAME = "subcases"
+
+# Deleted cases are moved here rather than actually removed from disk —
+# evidence integrity means deletion should be reversible, not destructive.
+# See core/case.py delete_case() / restore_case().
+TRASH_DIRNAME = ".trash"
+
 # Fixed filenames inside each case folder
 HASH_MANIFEST_FILE = "hashes.sha256"
 ARCHIVED_LINKS_FILE = "archived_links.txt"
+LINKED_CASES_FILE = "linked_cases.txt"
 SUMMARY_FILE = "summary.txt"
 METADATA_FILE = "case_meta.json"
 EVIDENCE_LOG_FILE = "evidence_log.json"

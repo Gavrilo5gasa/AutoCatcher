@@ -123,8 +123,13 @@ class OverviewPage(Gtk.Box):
         sub_header.append(add_sub_btn)
         content.append(sub_header)
 
-        self.subcases_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        content.append(self.subcases_box)
+        self.subcases_list = Gtk.ListBox()
+        self.subcases_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.subcases_list.add_css_class("boxed-list")
+        self.subcases_list.connect(
+            "row-activated", lambda _lb, row: self.on_switch_case(row.case_id)
+        )
+        content.append(self.subcases_list)
 
         self.subcases_empty_label = Gtk.Label(
             label="No sub-cases yet — useful when this case represents a whole "
@@ -284,31 +289,28 @@ class OverviewPage(Gtk.Box):
             self.links_list.append(row)
 
     def _refresh_subcases(self) -> None:
-        while (child := self.subcases_box.get_first_child()) is not None:
-            self.subcases_box.remove(child)
+        while (row := self.subcases_list.get_row_at_index(0)) is not None:
+            self.subcases_list.remove(row)
 
         subcases = list_subcases(self.meta.case_id)
         self.subcases_empty_label.set_visible(len(subcases) == 0)
 
         for sub_meta in subcases:
-            row_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            row_content.set_margin_top(6)
-            row_content.set_margin_bottom(6)
-            row_content.set_margin_start(8)
-            row_content.set_margin_end(8)
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row_box.set_margin_top(6)
+            row_box.set_margin_bottom(6)
+            row_box.set_margin_start(8)
+            row_box.set_margin_end(8)
 
             subject_label = Gtk.Label(label=sub_meta.subject, xalign=0, hexpand=True)
             meta_label = Gtk.Label(
                 label=f"{sub_meta.platform} · {sub_meta.created_at}", xalign=0
             )
             meta_label.add_css_class("dim-label")
-            row_content.append(subject_label)
-            row_content.append(meta_label)
+            row_box.append(subject_label)
+            row_box.append(meta_label)
 
-            row_btn = Gtk.Button()
-            row_btn.add_css_class("subcase-row-button")
-            row_btn.set_child(row_content)
-            row_btn.connect(
-                "clicked", lambda _b, cid=sub_meta.case_id: self.on_switch_case(cid)
-            )
-            self.subcases_box.append(row_btn)
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            row.case_id = sub_meta.case_id
+            self.subcases_list.append(row)

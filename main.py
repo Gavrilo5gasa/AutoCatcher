@@ -60,7 +60,10 @@ app = typer.Typer(
         "for online predator documentation."
     ),
     rich_markup_mode="rich",
-    no_args_is_help=True,
+    # no_args_is_help is deliberately OFF: the callback below decides what a
+    # bare `autocatcher` does (TUI on a frozen Windows exe, help elsewhere).
+    # Otherwise double-clicking the .exe prints help and the console closes.
+    no_args_is_help=False,
     pretty_exceptions_show_locals=False,
 )
 
@@ -113,8 +116,24 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback()
+def _run_tui_keep_window_open() -> None:
+    """Launch the TUI; if it crashes, keep the console open so the error is readable."""
+    try:
+        from tui.app import run as run_tui
+
+        run_tui()
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        if getattr(sys, "frozen", False):
+            input("\nAutoCatcher crashed. Press Enter to close...")
+        raise typer.Exit(1)
+
+
+@app.callback(invoke_without_command=True)
 def main_callback(
+    ctx: typer.Context,
     version: Optional[bool] = typer.Option(
         None,
         "--version",
@@ -129,6 +148,17 @@ def main_callback(
 
     Run any subcommand with [bold]--help[/bold] for details.
     """
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Bare `autocatcher` with no subcommand:
+    #   • frozen Windows .exe (double-click)  -> open the TUI
+    #   • everything else                     -> show help, like before
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        _run_tui_keep_window_open()
+    else:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
 
 
 # ── case commands ─────────────────────────────────────────────────────────────
@@ -491,16 +521,18 @@ def tui() -> None:
 
 @app.command("gui")
 def gui() -> None:
-    """Launch the GTK4 desktop GUI (Phase 3). Requires PyGObject + GTK4."""
-    try:
-        from gui.app import run as run_gui
-    except ImportError as e:
-        _err(f"GTK4/PyGObject not available: {e}")
-        _info("Debian/Ubuntu:  sudo apt install python3-gi gir1.2-gtk-4.0")
-        _info("Arch:           sudo pacman -S python-gobject gtk4")
-        raise typer.Exit(1)
+    """Launch the desktop GUI (GTK4 on Linux, Tkinter on Windows / fallback)."""
+    if sys.platform != "win32":
+        try:
+            from gui.app import run as run_gtk
+        except (ImportError, ValueError) as e:  # gi raises ValueError if Gtk 4.0 is missing
+            _warn(f"GTK4/PyGObject not available ({e}) — falling back to the Tk GUI.")
+        else:
+            raise typer.Exit(run_gtk())
 
-    raise typer.Exit(run_gui())
+    from gui_win.app import run as run_tk
+
+    raise typer.Exit(run_tk())
 
 
 @app.command("package")

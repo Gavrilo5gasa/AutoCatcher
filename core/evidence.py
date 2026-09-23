@@ -33,6 +33,18 @@ _TYPE_TO_SUBDIR: dict[str, str] = {
     "file":       "files",
 }
 
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+
+
+def evidence_path(case_dir: Path, record: "EvidenceRecord") -> Path:
+    """Full on-disk path for a given evidence record."""
+    return case_dir / _TYPE_TO_SUBDIR[record.type] / record.filename
+
+
+def is_image(record: "EvidenceRecord") -> bool:
+    """Whether this evidence record is a viewable image file."""
+    return Path(record.filename).suffix.lower() in _IMAGE_EXTENSIONS
+
 
 # ── Data model ────────────────────────────────────────────────────────────────
 

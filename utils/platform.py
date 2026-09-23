@@ -26,7 +26,7 @@ OSName = Literal["linux", "macos", "windows", "unknown"]
 
 
 def current_os() -> OSName:
-    """Return the current OS as one of our three supported names."""
+    """Return the current OS as one of three supported names."""
     if sys.platform.startswith("linux"):
         return "linux"
     if sys.platform == "darwin":

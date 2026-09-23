@@ -95,6 +95,19 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show_case(case_id)
         self.notify(f"Case created: {case_id}", error=False)
 
+    def close_case(self, case_id: str) -> None:
+        """
+        Remove a case's view from the stack/cache — used after a case is
+        deleted (moved to trash), since its CaseView would otherwise keep
+        referencing a folder that's no longer there. Falls back to the
+        welcome screen if the closed case was the one being viewed.
+        """
+        view = self._case_views.pop(case_id, None)
+        if view is not None:
+            self.content_stack.remove(view)
+        if self.content_stack.get_visible_child_name() in (None, case_id):
+            self.content_stack.set_visible_child_name("welcome")
+
     # ── status / notifications ──────────────────────────────────────────
 
     def notify(self, message: str, error: bool = False) -> None:

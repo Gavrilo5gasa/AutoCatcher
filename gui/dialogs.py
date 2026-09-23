@@ -17,7 +17,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
-from core.case import append_note, create_case, load_case
+from core.case import append_note, create_case, edit_note, link_case, list_cases, load_case
 from core.evidence import add_evidence
 from utils.platform import example_evidence_path
 
@@ -46,11 +46,17 @@ def _error_label() -> Gtk.Label:
 
 
 class NewCaseDialog(Gtk.Dialog):
-    """Create a case. Calls on_created(case_id) once the case exists."""
+    """Create a case. Calls on_created(case_id) once the case exists.
 
-    def __init__(self, parent: Gtk.Window, on_created) -> None:
-        super().__init__(title="New Case", transient_for=parent, modal=True)
+    If parent_case is given, this creates a sub-case (Case Folder) nested
+    under an existing case instead of a standalone top-level one.
+    """
+
+    def __init__(self, parent: Gtk.Window, on_created, parent_case: str = "") -> None:
+        title = f"New Sub-case of {parent_case}" if parent_case else "New Case"
+        super().__init__(title=title, transient_for=parent, modal=True)
         self.on_created = on_created
+        self.parent_case = parent_case
         self.set_default_size(420, -1)
 
         self.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -104,6 +110,7 @@ class NewCaseDialog(Gtk.Dialog):
             platform=platform,
             notes=notes,
             minor_involved=self.minor_check.get_active(),
+            parent_case=self.parent_case,
         )
         _, meta = load_case(case_dir.name)
         self.destroy()
@@ -261,7 +268,8 @@ class NoteDialog(Gtk.Dialog):
 
         box = _content_box(self)
         hint = Gtk.Label(
-            label="Notes are timestamped and append-only — nothing is ever overwritten.",
+            label="Notes are timestamped. You can edit a note later — the original "
+            "text is kept in its history, never discarded.",
             xalign=0,
         )
         hint.set_wrap(True)
@@ -290,6 +298,170 @@ class NoteDialog(Gtk.Dialog):
         append_note(self.case_dir, text)
         self.destroy()
         self.on_added()
+
+
+# ── Edit note ────────────────────────────────────────────────────────────────
+
+
+class EditNoteDialog(Gtk.Dialog):
+    """
+    Edit an existing note's text. The previous text is kept in that note's
+    edit history (see core.case.edit_note) — this dialog changes what's
+    displayed by default, not the record of what it used to say.
+    Calls on_edited() on success.
+    """
+
+    def __init__(
+        self, parent: Gtk.Window, case_dir: Path, note_id: str, current_text: str, on_edited
+    ) -> None:
+        super().__init__(title="Edit Note", transient_for=parent, modal=True)
+        self.case_dir = case_dir
+        self.note_id = note_id
+        self.on_edited = on_edited
+        self.set_default_size(420, -1)
+
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        save_btn = self.add_button("Save", Gtk.ResponseType.OK)
+        save_btn.add_css_class("suggested-action")
+
+        box = _content_box(self)
+        hint = Gtk.Label(
+            label="The original text is kept in this note's history, not discarded.",
+            xalign=0,
+        )
+        hint.set_wrap(True)
+        hint.add_css_class("dim-label")
+        box.append(hint)
+
+        self.note_view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD)
+        self.note_view.get_buffer().set_text(current_text)
+        scroll = Gtk.ScrolledWindow(min_content_height=100)
+        scroll.set_child(self.note_view)
+        box.append(scroll)
+
+        self.error_label = _error_label()
+        box.append(self.error_label)
+
+        self.connect("response", self._on_response)
+        self.note_view.grab_focus()
+
+    def _on_response(self, dialog, response) -> None:
+        if response != Gtk.ResponseType.OK:
+            self.destroy()
+            return
+        buf = self.note_view.get_buffer()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False).strip()
+        if not text:
+            self.error_label.set_text("Note can't be empty.")
+            return
+        edit_note(self.case_dir, self.note_id, text)
+        self.destroy()
+        self.on_edited()
+
+
+# ── Link case ────────────────────────────────────────────────────────────────
+
+
+class LinkCaseDialog(Gtk.Dialog):
+    """
+    Pick another existing case to link to this one, with an optional
+    comment explaining the connection (e.g. "subject is being promoted to
+    this server from another case") — like pinning two cards together on
+    a board with a note on the string. Symmetric: shows up from both
+    sides. Calls on_linked() after the link is saved.
+    """
+
+    def __init__(self, parent: Gtk.Window, case_dir: Path, current_case_id: str, on_linked) -> None:
+        super().__init__(title="Link Case", transient_for=parent, modal=True)
+        self.case_dir = case_dir
+        self.on_linked = on_linked
+        self.set_default_size(420, -1)
+
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        link_btn = self.add_button("Link", Gtk.ResponseType.OK)
+        link_btn.add_css_class("suggested-action")
+
+        box = _content_box(self)
+
+        _, meta = load_case(current_case_id)
+        already_linked = {l["case_id"] for l in meta.linked_cases} | {current_case_id}
+        candidates = [m for m in list_cases() if m.case_id not in already_linked]
+
+        self.error_label = _error_label()
+
+        if not candidates:
+            box.append(Gtk.Label(label="No other cases available to link.", xalign=0))
+            self.combo = None
+            link_btn.set_sensitive(False)
+        else:
+            box.append(Gtk.Label(label="Link this case to:", xalign=0))
+            self.combo = Gtk.ComboBoxText()
+            for m in candidates:
+                self.combo.append(m.case_id, f"{m.subject} ({m.case_id})")
+            self.combo.set_active(0)
+            box.append(self.combo)
+
+            box.append(Gtk.Label(label="Why are these linked? (optional)", xalign=0))
+            self.comment_entry = Gtk.Entry(
+                placeholder_text="e.g. Getting promoted to this server from another case"
+            )
+            box.append(self.comment_entry)
+
+        box.append(self.error_label)
+
+        self.connect("response", self._on_response)
+
+    def _on_response(self, dialog, response) -> None:
+        if response != Gtk.ResponseType.OK or self.combo is None:
+            self.destroy()
+            return
+        other_case_id = self.combo.get_active_id()
+        if not other_case_id:
+            self.error_label.set_text("Pick a case to link.")
+            return
+        comment = self.comment_entry.get_text().strip()
+        link_case(self.case_dir, other_case_id, comment=comment)
+        self.destroy()
+        self.on_linked()
+
+
+# ── Delete case ──────────────────────────────────────────────────────────────
+
+
+class DeleteCaseDialog(Gtk.Dialog):
+    """
+    Confirm moving a case to the trash. Deliberately not a plain
+    ConfirmDialog — it's important the person sees this is a soft delete
+    (case.py moves the folder to cases/.trash/, it doesn't remove it from
+    disk) before confirming, so "delete" doesn't read as "forcedel".
+    Calls on_result(True|False).
+    """
+
+    def __init__(self, parent: Gtk.Window, case_id: str, on_result) -> None:
+        super().__init__(title="Delete Case", transient_for=parent, modal=True)
+        self.on_result = on_result
+        self.set_default_size(400, -1)
+
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        delete_btn = self.add_button("Move to Trash", Gtk.ResponseType.OK)
+        delete_btn.add_css_class("destructive-action")
+
+        box = _content_box(self)
+        label = Gtk.Label(
+            label=(
+                f"Move “{case_id}” to the trash?\n\n"
+                "This does not delete anything from disk — the case (and any "
+                "sub-cases nested inside it) is moved to cases/.trash/ and can "
+                "be restored later."
+            ),
+            xalign=0,
+        )
+        label.set_wrap(True)
+        box.append(label)
+
+        self.connect(
+            "response", lambda d, r: (self.destroy(), self.on_result(r == Gtk.ResponseType.OK))
+        )
 
 
 # ── Generic confirm ──────────────────────────────────────────────────────────

@@ -100,6 +100,46 @@ CSS = """
     opacity: 0.6;
     font-size: 120%;
 }
+
+.evidence-thumb-button {
+    padding: 0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.note-row {
+    padding: 8px 4px;
+    border-bottom: 1px solid alpha(@window_fg_color, 0.08);
+}
+
+.note-row-timestamp {
+    font-weight: bold;
+    font-size: 85%;
+    opacity: 0.65;
+}
+
+.case-chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid alpha(@window_fg_color, 0.2);
+}
+
+.subcase-row-button {
+    background: transparent;
+    border: 1px solid alpha(@window_fg_color, 0.12);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.subcase-row-button:hover {
+    background: alpha(@window_fg_color, 0.06);
+}
+
+.section-title {
+    font-weight: bold;
+    font-size: 105%;
+    margin-top: 6px;
+}
 """
 
 

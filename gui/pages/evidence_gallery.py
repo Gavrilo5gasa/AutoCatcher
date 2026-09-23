@@ -3,6 +3,10 @@ gui/pages/evidence_gallery.py — Phase 3.2: evidence gallery.
 
 Shows every piece of evidence as a card (type, filename, description,
 short hash, timestamp) in a wrapping FlowBox, plus add/verify actions.
+
+QoL: image evidence gets a real thumbnail instead of just a filename, and
+clicking it opens a full-size viewer with Previous/Next navigation across
+every image in the case (gui/image_viewer.py).
 """
 
 from pathlib import Path
@@ -15,17 +19,21 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
-from core.evidence import list_evidence
+from core.evidence import evidence_path, is_image, list_evidence
 from core.hasher import verify_manifest
 
+from gui.image_viewer import ImageViewerDialog
+
 _TYPE_ICONS = {"screenshot": "🖼", "log": "📝", "file": "📄"}
+_THUMB_SIZE = 160
 
 
 class EvidenceGalleryPage(Gtk.Box):
     """Wrapping card gallery of all evidence added to a case."""
 
-    def __init__(self, case_dir: Path, on_add_evidence, on_notify) -> None:
+    def __init__(self, case_dir: Path, get_window, on_add_evidence, on_notify) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.get_window = get_window
         self.on_notify = on_notify
         self.set_margin_top(12)
         self.set_margin_bottom(12)
@@ -71,15 +79,37 @@ class EvidenceGalleryPage(Gtk.Box):
         records = list_evidence(self.case_dir)
         self.empty_label.set_visible(len(records) == 0)
 
+        # All viewable images, in gallery order — shared across every image
+        # card so Previous/Next in the viewer steps through all of them,
+        # not just images of the same evidence type.
+        image_records = [r for r in records if is_image(r)]
+
         for rec in records:
             card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             card.add_css_class("evidence-card")
 
-            type_label = Gtk.Label(
-                label=f"{_TYPE_ICONS.get(rec.type, '📄')}  {rec.type.upper()}", xalign=0
-            )
-            type_label.add_css_class("evidence-card-type")
-            card.append(type_label)
+            if is_image(rec):
+                thumb_path = evidence_path(self.case_dir, rec)
+                picture = Gtk.Picture()
+                picture.set_size_request(_THUMB_SIZE, _THUMB_SIZE)
+                picture.set_content_fit(Gtk.ContentFit.COVER)
+                if thumb_path.exists():
+                    picture.set_filename(str(thumb_path))
+
+                thumb_btn = Gtk.Button()
+                thumb_btn.add_css_class("evidence-thumb-button")
+                thumb_btn.set_child(picture)
+                image_index = image_records.index(rec)
+                thumb_btn.connect(
+                    "clicked", lambda _b, idx=image_index: self._open_viewer(image_records, idx)
+                )
+                card.append(thumb_btn)
+            else:
+                type_label = Gtk.Label(
+                    label=f"{_TYPE_ICONS.get(rec.type, '📄')}  {rec.type.upper()}", xalign=0
+                )
+                type_label.add_css_class("evidence-card-type")
+                card.append(type_label)
 
             filename_label = Gtk.Label(label=rec.filename, xalign=0, wrap=True)
             filename_label.set_selectable(True)
@@ -104,6 +134,9 @@ class EvidenceGalleryPage(Gtk.Box):
             card.append(added_label)
 
             self.flow_box.append(card)
+
+    def _open_viewer(self, image_records: list, start_index: int) -> None:
+        ImageViewerDialog(self.get_window(), self.case_dir, image_records, start_index).present()
 
     def _verify(self) -> None:
         results = verify_manifest(self.case_dir)
